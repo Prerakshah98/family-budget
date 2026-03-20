@@ -1182,7 +1182,9 @@
       };
 
       const fbApp = initializeApp(firebaseConfig);
-      const db = initializeFirestore(fbApp, { persistence: persistentLocalCache() });
+      const db = initializeFirestore(fbApp, {
+        persistence: persistentLocalCache(),
+      });
       const auth = getAuth(fbApp);
       const entriesCol = collection(db, "entries");
       const membersCol = collection(db, "members");
@@ -1203,13 +1205,12 @@
         "December",
       ];
       const CAT_COLORS = {
-        House_expenses_and_Grocery: "#1D9E75",
+        Grocery_and_House_expenses: "#1D9E75",
         Medical: "#D85A30",
         Investment: "#378ADD",
         Household_Work: "#BA7517",
         Food: "#9B59B6",
         Transfer: "#E67E22",
-        Other: "#888780",
       };
 
       // Palette for member color picker
@@ -1234,7 +1235,7 @@
       // State
       let members = []; // [{id, name, color}, ...]
       let categories = [
-        "House expenses and Grocery",
+        "Grocery and House expenses",
         "Medical",
         "Investment",
         "Household_Work",
@@ -1251,13 +1252,14 @@
       let unsubEntries = null;
       let unsubMembers = null;
       let unsubCategories = null;
+      let catColors = {};
       const now = new Date();
       let aYear = now.getFullYear(),
         aMonth = now.getMonth();
 
       // ── HELPERS ──────────────────────────────────────────────────────
       const fmt = (n) => "₹" + Math.round(n).toLocaleString("en-IN");
-      const gCC = (c) => CAT_COLORS[c] || "#888780";
+      const gCC = (c) => CAT_COLORS[c] || catColors[c] || "#888780";
       const gPC = (name) => {
         const m = members.find((x) => x.name === name);
         return m ? m.color : "#888";
@@ -1372,9 +1374,10 @@
 
         // Categories listener
         unsubCategories = onSnapshot(categoriesCol, (snap) => {
-          const saved = snap.docs.map((d) => d.data().name);
-          saved.forEach((name) => {
+          snap.docs.forEach((d) => {
+            const { name, color } = d.data();
             if (!categories.includes(name)) categories.push(name);
+            if (color) catColors[name] = color;
           });
           renderCatChips();
         });
@@ -1594,12 +1597,17 @@
         const inp = document.getElementById("new-cat-input");
         const val = inp.value.trim();
         if (!val || categories.includes(val)) return;
+        const usedColors = Object.values(catColors);
+        const color =
+          PALETTE.find((c) => !usedColors.includes(c)) ||
+          PALETTE[categories.length % PALETTE.length];
         categories.push(val);
+        catColors[val] = color;
         selectedCats.add(val);
         inp.value = "";
         renderCatChips();
         try {
-          await addDoc(categoriesCol, { name: val });
+          await addDoc(categoriesCol, { name: val, color });
         } catch (e) {
           showToast("Category saved locally only — check connection");
         }
